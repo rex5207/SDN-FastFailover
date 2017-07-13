@@ -21,12 +21,10 @@ class SimpleSwitch13(app_manager.RyuApp):
 
     def __init__(self, *args, **kwargs):
         super(SimpleSwitch13, self).__init__(*args, **kwargs)
-        self.mac_to_port = {}
         self.hosts = {}
         self.net = nx.DiGraph()
         self.topology_api_app = self
         self.mac_to_gid = {}
-        self.gid_to_mac = {}
         self.num_groups = 1
 
     @set_ev_cls(ofp_event.EventOFPErrorMsg, MAIN_DISPATCHER)
@@ -71,16 +69,13 @@ class SimpleSwitch13(app_manager.RyuApp):
             src = host.mac
             dpid = host.port.dpid
             in_port = host.port.port_no
-            print src, dpid, in_port
             self.hosts[src] = (dpid, in_port)
 
             if src not in self.mac_to_gid:
                 self.mac_to_gid[src] = self.num_groups
-                self.gid_to_mac[self.num_groups] = src
                 gid = self.num_groups
                 self.logger.info("mac: %s, gid: %d", src, gid)
                 self.num_groups += 1
-
         return (dst in self.hosts)
 
     def get_nx_graph(self):
@@ -89,8 +84,6 @@ class SimpleSwitch13(app_manager.RyuApp):
             src = link.src
             dst = link.dst
             self.net.add_edge(src.dpid, dst.dpid, src_port=src.port_no, dst_port=dst.port_no)
-
-        print self.net.edges()
 
     @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
     def _packet_in_handler(self, ev):
@@ -110,12 +103,10 @@ class SimpleSwitch13(app_manager.RyuApp):
         src = eth.src
 
         dpid = datapath.id
-        self.mac_to_port.setdefault(dpid, {})
         _dbg_hosts = ['00:00:00:00:00:01', '00:00:00:00:00:02']
         if src not in _dbg_hosts or dst not in _dbg_hosts:
             return
-        # learn a mac address to avoid FLOOD next time.
-        self.mac_to_port[dpid][src] = in_port
+
         if dst not in self.hosts:
             isvalid = self.find_hosts(dst)
             if isvalid is False:
